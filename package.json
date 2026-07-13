@@ -7,13 +7,16 @@
   "exports": "./src/index.ts",
   "scripts": {
     "build": "smartbundle",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "vitest run --config vitest.config.ts"
   },
   "keywords": [],
   "devDependencies": {
+    "@vitest/browser": "^3.2.7",
     "oxlint": "^1.73.0",
+    "playwright": "^1.61.1",
     "smartbundle": "^0.14.2",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.7"
   },
   "dependencies": {
     "@reatom/core": "^1001.1.0"
