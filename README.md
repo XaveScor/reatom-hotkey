@@ -1,9 +1,9 @@
-# reatom-hotkey
+# @xavescor/reatom-hotkey
 
 Physical keyboard shortcuts represented as lazy Reatom actions.
 
 ```ts
-import { reatomHotkey } from 'reatom-hotkey'
+import { reatomHotkey } from '@xavescor/reatom-hotkey'
 
 const save = reatomHotkey('ctrl+s') // Action<[event: KeyboardEvent], KeyboardEvent>
 
