@@ -2,6 +2,14 @@
 
 Physical keyboard shortcuts represented as lazy Reatom actions.
 
+## Installation
+
+```sh
+npm install --save @xavescor/reatom-hotkey
+```
+
+## Usage
+
 ```ts
 import { reatomHotkey } from '@xavescor/reatom-hotkey'
 
