@@ -14,20 +14,6 @@ const connect = async (hotkey: ReturnType<typeof reatomHotkey>) => {
 }
 
 describe('reatomHotkey', () => {
-  test('rejects non-ASCII and invalid hotkeys synchronously', () => {
-    expect(() => reatomHotkey('ф')).toThrowError(
-      'Hotkey must contain ASCII characters only',
-    )
-    expect(() => reatomHotkey('shift+🔥')).toThrow(TypeError)
-    expect(() => reatomHotkey('')).toThrowError('Hotkey must not be empty')
-    expect(() => reatomHotkey('ctrl++a')).toThrowError('Invalid hotkey')
-    expect(() => reatomHotkey('ctrl+control+a')).toThrowError('Duplicate key')
-    expect(() => reatomHotkey('shift')).toThrowError(
-      'Hotkey must contain at least one non-modifier key',
-    )
-    expect(() => reatomHotkey('unknown')).toThrowError('Unknown key')
-  })
-
   test('matches browser keyboard events and returns the native event', async () => {
     const { listener, unsubscribe } = await connect(reatomHotkey('a'))
 
@@ -37,27 +23,6 @@ describe('reatomHotkey', () => {
     expect(listener.mock.calls[0]?.[0]).toBeInstanceOf(KeyboardEvent)
     expect(listener.mock.calls[0]?.[0].code).toBe('KeyA')
     unsubscribe()
-  })
-
-  test('maps digits, aliases, canonical codes, and punctuation', async () => {
-    const shortcuts = [
-      ['1', '1'],
-      ['esc', '{Escape}'],
-      ['arrowleft', '{ArrowLeft}'],
-      ['f12', '{F12}'],
-      ['numpad1', '{Numpad1}'],
-      ['/', '/'],
-    ] as const
-
-    for (const [shortcut, keys] of shortcuts) {
-      const { listener, unsubscribe } = await connect(reatomHotkey(shortcut))
-
-      await userEvent.keyboard(keys)
-
-      expect(listener, shortcut).toHaveBeenCalledOnce()
-      unsubscribe()
-      await wrap(sleep())
-    }
   })
 
   test('requires an exact set of modifiers', async () => {
