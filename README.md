@@ -5,7 +5,7 @@ Physical keyboard shortcuts represented as lazy Reatom actions.
 ```ts
 import { reatomHotkey } from 'reatom-hotkey'
 
-const save = reatomHotkey('ctrl+s')
+const save = reatomHotkey('ctrl+s') // Action<[event: KeyboardEvent], KeyboardEvent>
 
 const unsubscribe = save.subscribe((event) => {
   console.log(event.code)
@@ -27,8 +27,9 @@ Letters and digits refer to physical keyboard codes:
 
 Supported modifiers are `alt`, `ctrl` (or `control`), `meta`, and `shift`.
 Named codes such as `escape`, `arrowleft`, `f12`, `slash`, and `numpad1` are
-also supported. Hotkey declarations are case-insensitive and must contain ASCII
-characters only. Invalid declarations throw a `TypeError` immediately.
+also supported. Named tokens are case-insensitive, but single-letter shortcuts
+must be lowercase. Declarations must contain ASCII characters only. Invalid
+declarations throw a `TypeError` immediately.
 
 The action fires on `keydown` and returns the original `KeyboardEvent` as its
 payload. Repeated keydown events are not filtered, editable elements are not
