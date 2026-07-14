@@ -1,6 +1,8 @@
 # @xavescor/reatom-hotkey
 
-Physical keyboard shortcuts represented as lazy Reatom actions.
+Physical keyboard shortcuts represented as lazy Reatom actions. The library
+normalizes DOM keyboard events; application behavior stays in regular Reatom
+effects and actions.
 
 ## Installation
 
@@ -11,17 +13,78 @@ npm install --save @xavescor/reatom-hotkey
 ## Usage
 
 ```ts
+import { effect, getCalls } from '@reatom/core'
 import { reatomHotkey } from '@xavescor/reatom-hotkey'
 
-const save = reatomHotkey('ctrl+s') // Action<[event: KeyboardEvent], KeyboardEvent>
+const replayHotkey = reatomHotkey('a', {
+  document: pageDocument,
+  editable: 'ignore',
+  preventDefault: true,
+  propagation: 'stop',
+  name: 'youtubeHost.replayHotkey',
+})
 
-const unsubscribe = save.subscribe((event) => {
-  console.log(event.code)
+effect(() => {
+  getCalls(replayHotkey).forEach(({ payload: event }) => {
+    // Application behavior belongs here.
+  })
 })
 ```
 
-The listeners are attached when the action gets its first subscriber and are
-removed after its last subscriber disconnects.
+`reatomHotkey` returns a plain
+`GAction<(event: KeyboardEvent) => KeyboardEvent>`. The action receives and
+returns the original native event.
+
+To observe a shortcut without interfering with the page's own handler, leave
+`preventDefault` and `propagation` at their defaults:
+
+```ts
+const subtitlesHotkey = reatomHotkey('c', {
+  document: pageDocument,
+  editable: 'ignore',
+  repeat: 'ignore',
+  name: 'youtubePlayer.nativeSubtitles.hotkey',
+})
+```
+
+## Options
+
+```ts
+interface HotkeyOptions {
+  document?: Document
+  trigger?: 'keydown' | 'keyup'
+  capture?: boolean
+  repeat?: 'allow' | 'ignore'
+  editable?: 'allow' | 'ignore'
+  preventDefault?: boolean
+  propagation?: 'allow' | 'stop' | 'immediate'
+  name?: string
+}
+```
+
+| Option | Default | Behavior |
+| --- | --- | --- |
+| `document` | `globalThis.document` | Document that owns the keyboard and lifecycle listeners. Useful for iframes. |
+| `trigger` | `'keydown'` | Event type that can invoke the action. Both event types are still tracked for chord state. |
+| `capture` | `false` | Uses the capture phase for keyboard listeners. |
+| `repeat` | `'allow'` | Allows or ignores events with `KeyboardEvent.repeat === true`. |
+| `editable` | `'allow'` | Allows or ignores events from `input`, `textarea`, `select`, and contenteditable elements or their descendants. |
+| `preventDefault` | `false` | Calls `event.preventDefault()` for an accepted hotkey. |
+| `propagation` | `'allow'` | Allows propagation, calls `stopPropagation()`, or calls `stopImmediatePropagation()`. |
+| `name` | normalized `hotkey.*` declaration | Reatom action name, for example `hotkey.ctrl+s`. |
+
+The action is invoked only after the shortcut matches and every configured
+filter accepts the event. Event handling follows this order:
+
+1. Match physical codes, chord state, and exact modifiers.
+2. Apply the `repeat` filter.
+3. Apply the `editable` filter.
+4. Apply `preventDefault` and `propagation`.
+5. Invoke the action with the event.
+
+Filtered and unmatched events are not modified. Calling the returned action
+directly is a normal Reatom action call and therefore bypasses DOM matching and
+filters.
 
 ## Syntax
 
@@ -39,6 +102,13 @@ also supported. Named tokens are case-insensitive, but single-letter shortcuts
 must be lowercase. Declarations must contain ASCII characters only. Invalid
 declarations throw a `TypeError` immediately.
 
-The action fires on `keydown` and returns the original `KeyboardEvent` as its
-payload. Repeated keydown events are not filtered, editable elements are not
-ignored, and the event's default behavior is not prevented.
+## Lifecycle And SSR
+
+Listeners are attached through `withConnectHook` when the action gets its first
+subscriber and removed after its last subscriber disconnects. Pressed chord
+state is cleared on window blur, document visibility changes, disconnect, and
+reconnect.
+
+Creating or connecting a hotkey without a global `document` is safe and does
+not attach listeners. Pass a specific `Document` when working with an iframe or
+another browsing context.
