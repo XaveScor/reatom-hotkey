@@ -15,7 +15,7 @@ describe('compile', () => {
       { type: 'modifier', modifier: 'shift' },
       { type: 'key', code: 'KeyA' },
     ]
-    const match = compile(entries)
+    const { match } = compile(entries)
     const pressedCodes = new Set(['KeyA'])
 
     expect(
@@ -31,7 +31,7 @@ describe('compile', () => {
   })
 
   test('requires every chord key to be pressed', () => {
-    const match = compile([
+    const { match } = compile([
       { type: 'key', code: 'KeyA' },
       { type: 'key', code: 'KeyB' },
     ])
@@ -41,13 +41,15 @@ describe('compile', () => {
   })
 
   test('requires the current event to belong to the chord', () => {
-    const match = compile([
+    const compiled = compile([
       { type: 'key', code: 'KeyA' },
       { type: 'key', code: 'KeyB' },
     ])
 
-    expect(match(event('KeyC'), new Set(['KeyA', 'KeyB', 'KeyC']))).toBe(
-      false,
-    )
+    expect(
+      compiled.match(event('KeyC'), new Set(['KeyA', 'KeyB', 'KeyC'])),
+    ).toBe(false)
+    expect(compiled.hasCode('KeyA')).toBe(true)
+    expect(compiled.hasCode('KeyC')).toBe(false)
   })
 })

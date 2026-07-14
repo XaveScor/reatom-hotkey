@@ -4,6 +4,13 @@ import type { GAction } from '@reatom/core'
 import { compile } from './compile'
 import { parse } from './parse'
 
+const modifierFlags = [
+  'altKey',
+  'ctrlKey',
+  'metaKey',
+  'shiftKey',
+] as const
+
 export interface HotkeyOptions {
   document?: Document
   trigger?: 'keydown' | 'keyup'
@@ -40,7 +47,7 @@ export const reatomHotkey = (
   hotkey: string,
   options: HotkeyOptions = {},
 ): GAction<(event: KeyboardEvent) => KeyboardEvent> => {
-  const match = compile(parse(hotkey))
+  const compiled = compile(parse(hotkey))
   const {
     trigger = 'keydown',
     capture = false,
@@ -61,12 +68,47 @@ export const reatomHotkey = (
       if (targetDocument === undefined) return
 
       const pressedCodes = new Set<string>()
+      const suspendedModifiers = new Set<(typeof modifierFlags)[number]>()
+      let armed = false
+      let suspended = false
 
-      const accept = (event: KeyboardEvent) => {
-        if (!match(event, pressedCodes)) return
-        if (repeat === 'ignore' && event.repeat) return
-        if (editable === 'ignore' && isEditableEvent(event)) return
+      const reset = () => {
+        pressedCodes.clear()
+        suspendedModifiers.clear()
+        armed = false
+        suspended = false
+      }
 
+      const isImeEvent = (event: KeyboardEvent) =>
+        // IME boundary keydowns can fall just outside the composition session.
+        event.isComposing || event.keyCode === 229
+
+      const isIgnoredEditable = (event: KeyboardEvent) =>
+        editable === 'ignore' && isEditableEvent(event)
+
+      const suspend = (event: KeyboardEvent) => {
+        suspended = true
+        armed = false
+
+        for (const flag of modifierFlags) {
+          if (event[flag]) suspendedModifiers.add(flag)
+        }
+      }
+
+      const updateSuspension = (event: KeyboardEvent) => {
+        for (const flag of modifierFlags) {
+          if (!event[flag]) suspendedModifiers.delete(flag)
+        }
+
+        if (pressedCodes.size === 0 && suspendedModifiers.size === 0) {
+          suspended = false
+        }
+      }
+
+      const acceptsRepeat = (event: KeyboardEvent) =>
+        repeat === 'allow' || !event.repeat
+
+      const invoke = (event: KeyboardEvent) => {
         if (preventDefault) event.preventDefault()
 
         if (propagation === 'stop') event.stopPropagation()
@@ -79,9 +121,31 @@ export const reatomHotkey = (
         targetDocument,
         'keydown',
         (event) => {
+          if (isImeEvent(event)) {
+            reset()
+            return
+          }
+
           pressedCodes.add(event.code)
 
-          if (trigger === 'keydown') accept(event)
+          if (isIgnoredEditable(event)) {
+            suspend(event)
+            return
+          }
+
+          if (suspended) {
+            updateSuspension(event)
+            return
+          }
+
+          if (!compiled.match(event, pressedCodes)) return
+
+          if (trigger === 'keydown') {
+            if (!acceptsRepeat(event)) return
+            invoke(event)
+          } else {
+            armed = true
+          }
         },
         { capture },
       )
@@ -89,18 +153,41 @@ export const reatomHotkey = (
         targetDocument,
         'keyup',
         (event) => {
+          if (isImeEvent(event)) {
+            reset()
+            return
+          }
+
+          const releasedChordCode = compiled.hasCode(event.code)
+
           try {
-            if (trigger === 'keyup') accept(event)
+            if (isIgnoredEditable(event)) {
+              suspend(event)
+              return
+            }
+
+            if (
+              !suspended &&
+              trigger === 'keyup' &&
+              armed &&
+              releasedChordCode &&
+              pressedCodes.has(event.code) &&
+              acceptsRepeat(event)
+            ) {
+              invoke(event)
+            }
           } finally {
             pressedCodes.delete(event.code)
+            if (releasedChordCode) armed = false
+            if (suspended) updateSuspension(event)
           }
         },
         { capture },
       )
-      onEvent(targetDocument, 'visibilitychange', () => pressedCodes.clear())
+      onEvent(targetDocument, 'visibilitychange', reset)
 
       if (targetDocument.defaultView !== null) {
-        onEvent(targetDocument.defaultView, 'blur', () => pressedCodes.clear())
+        onEvent(targetDocument.defaultView, 'blur', reset)
       }
     }),
   )

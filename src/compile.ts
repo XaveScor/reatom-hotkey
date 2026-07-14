@@ -5,7 +5,12 @@ export type Matcher = (
   pressedCodes: ReadonlySet<string>,
 ) => boolean
 
-export const compile = (entries: readonly Entry[]): Matcher => {
+export interface CompiledHotkey {
+  hasCode: (code: string) => boolean
+  match: Matcher
+}
+
+export const compile = (entries: readonly Entry[]): CompiledHotkey => {
   const modifiers = new Set<Modifier>()
   const codes = new Set<string>()
 
@@ -19,11 +24,14 @@ export const compile = (entries: readonly Entry[]): Matcher => {
 
   const requiredCodes = [...codes]
 
-  return (event, pressedCodes) =>
-    codes.has(event.code) &&
-    event.altKey === modifiers.has('alt') &&
-    event.ctrlKey === modifiers.has('ctrl') &&
-    event.metaKey === modifiers.has('meta') &&
-    event.shiftKey === modifiers.has('shift') &&
-    requiredCodes.every((code) => pressedCodes.has(code))
+  return {
+    hasCode: (code) => codes.has(code),
+    match: (event, pressedCodes) =>
+      codes.has(event.code) &&
+      event.altKey === modifiers.has('alt') &&
+      event.ctrlKey === modifiers.has('ctrl') &&
+      event.metaKey === modifiers.has('meta') &&
+      event.shiftKey === modifiers.has('shift') &&
+      requiredCodes.every((code) => pressedCodes.has(code)),
+  }
 }

@@ -17,7 +17,7 @@ const dispatchKeyboard = (
   target: EventTarget,
   type: 'keydown' | 'keyup',
   code: string,
-  init: KeyboardEventInit = {},
+  init: KeyboardEventInit & { keyCode?: number } = {},
 ) => {
   const event = new KeyboardEvent(type, {
     bubbles: true,
@@ -25,6 +25,10 @@ const dispatchKeyboard = (
     code,
     ...init,
   })
+
+  if (init.keyCode !== undefined) {
+    Object.defineProperty(event, 'keyCode', { value: init.keyCode })
+  }
 
   target.dispatchEvent(event)
   return event
@@ -110,12 +114,72 @@ describe('reatomHotkey', () => {
     dispatchKeyboard(document, 'keydown', 'KeyB')
     expect(listener).not.toHaveBeenCalled()
 
-    const event = dispatchKeyboard(document, 'keyup', 'KeyB')
-    dispatchKeyboard(document, 'keyup', 'KeyA')
+    const event = dispatchKeyboard(document, 'keyup', 'KeyA')
+    dispatchKeyboard(document, 'keyup', 'KeyB')
     await wrap(sleep())
 
     expect(listener).toHaveBeenCalledOnce()
     expect(listener.mock.calls[0]?.[0]).toBe(event)
+    unsubscribe()
+  })
+
+  test('triggers an armed hotkey when its key is released after its modifier', async () => {
+    const { listener, unsubscribe } = await connect(
+      reatomHotkey('ctrl+a', { trigger: 'keyup' }),
+    )
+
+    dispatchKeyboard(document, 'keydown', 'ControlLeft', {
+      ctrlKey: true,
+      key: 'Control',
+    })
+    dispatchKeyboard(document, 'keydown', 'KeyA', { ctrlKey: true })
+    dispatchKeyboard(document, 'keydown', 'KeyC', { ctrlKey: true })
+    dispatchKeyboard(document, 'keyup', 'KeyC', { ctrlKey: true })
+    dispatchKeyboard(document, 'keyup', 'ControlLeft', { key: 'Control' })
+    expect(listener).not.toHaveBeenCalled()
+
+    const event = dispatchKeyboard(document, 'keyup', 'KeyA')
+    await wrap(sleep())
+
+    expect(listener).toHaveBeenCalledOnce()
+    expect(listener.mock.calls[0]?.[0]).toBe(event)
+    unsubscribe()
+  })
+
+  test('applies the repeat filter to the configured keyup trigger', async () => {
+    const { listener, unsubscribe } = await connect(
+      reatomHotkey('a', { repeat: 'ignore', trigger: 'keyup' }),
+    )
+
+    dispatchKeyboard(document, 'keydown', 'KeyA', { repeat: true })
+    const event = dispatchKeyboard(document, 'keyup', 'KeyA')
+    await wrap(sleep())
+
+    expect(listener).toHaveBeenCalledOnce()
+    expect(listener.mock.calls[0]?.[0]).toBe(event)
+    unsubscribe()
+  })
+
+  test('clears armed keyup state on blur and visibilitychange', async () => {
+    const { listener, unsubscribe } = await connect(
+      reatomHotkey('a', { trigger: 'keyup' }),
+    )
+
+    dispatchKeyboard(document, 'keydown', 'KeyA')
+    window.dispatchEvent(new Event('blur'))
+    dispatchKeyboard(document, 'keyup', 'KeyA')
+
+    dispatchKeyboard(document, 'keydown', 'KeyA')
+    document.dispatchEvent(new Event('visibilitychange'))
+    dispatchKeyboard(document, 'keyup', 'KeyA')
+    await wrap(sleep())
+    expect(listener).not.toHaveBeenCalled()
+
+    dispatchKeyboard(document, 'keydown', 'KeyA')
+    dispatchKeyboard(document, 'keyup', 'KeyA')
+    await wrap(sleep())
+
+    expect(listener).toHaveBeenCalledOnce()
     unsubscribe()
   })
 
@@ -192,6 +256,7 @@ describe('reatomHotkey', () => {
 
     for (const target of [input, textarea, select, editable, editableChild]) {
       dispatchKeyboard(target, 'keydown', 'KeyA')
+      dispatchKeyboard(target, 'keyup', 'KeyA')
     }
     await wrap(sleep())
     expect(listener).not.toHaveBeenCalled()
@@ -201,6 +266,107 @@ describe('reatomHotkey', () => {
     expect(listener).toHaveBeenCalledOnce()
     unsubscribe()
   })
+
+  test('suspends a partial chord across an ignored editable context', async () => {
+    const input = document.createElement('input')
+    const button = document.createElement('button')
+    document.body.append(input, button)
+    const { listener, unsubscribe } = await connect(
+      reatomHotkey('a+b', { editable: 'ignore' }),
+    )
+
+    dispatchKeyboard(button, 'keydown', 'KeyA')
+    dispatchKeyboard(input, 'keydown', 'KeyB')
+    dispatchKeyboard(button, 'keyup', 'KeyB')
+    dispatchKeyboard(button, 'keydown', 'KeyB')
+    await wrap(sleep())
+    expect(listener).not.toHaveBeenCalled()
+
+    dispatchKeyboard(button, 'keyup', 'KeyB')
+    dispatchKeyboard(button, 'keyup', 'KeyA')
+    dispatchKeyboard(button, 'keydown', 'KeyA')
+    dispatchKeyboard(button, 'keydown', 'KeyB')
+    await wrap(sleep())
+
+    expect(listener).toHaveBeenCalledOnce()
+    unsubscribe()
+  })
+
+  test('keeps an ignored chord suspended until active modifiers are released', async () => {
+    const input = document.createElement('input')
+    const button = document.createElement('button')
+    document.body.append(input, button)
+    const { listener, unsubscribe } = await connect(
+      reatomHotkey('ctrl+a', { editable: 'ignore' }),
+    )
+
+    dispatchKeyboard(input, 'keydown', 'KeyA', { ctrlKey: true })
+    dispatchKeyboard(button, 'keyup', 'KeyA', { ctrlKey: true })
+    dispatchKeyboard(button, 'keydown', 'KeyA', { ctrlKey: true })
+    dispatchKeyboard(button, 'keyup', 'KeyA', { ctrlKey: true })
+    await wrap(sleep())
+    expect(listener).not.toHaveBeenCalled()
+
+    dispatchKeyboard(document, 'keyup', 'ControlLeft', { key: 'Control' })
+    dispatchKeyboard(document, 'keydown', 'ControlLeft', {
+      ctrlKey: true,
+      key: 'Control',
+    })
+    dispatchKeyboard(button, 'keydown', 'KeyA', { ctrlKey: true })
+    await wrap(sleep())
+
+    expect(listener).toHaveBeenCalledOnce()
+    unsubscribe()
+  })
+
+  test('cancels an armed keyup hotkey in an ignored editable context', async () => {
+    const input = document.createElement('input')
+    const button = document.createElement('button')
+    document.body.append(input, button)
+    const { listener, unsubscribe } = await connect(
+      reatomHotkey('a+b', { editable: 'ignore', trigger: 'keyup' }),
+    )
+
+    dispatchKeyboard(button, 'keydown', 'KeyA')
+    dispatchKeyboard(button, 'keydown', 'KeyB')
+    dispatchKeyboard(input, 'keyup', 'KeyB')
+    dispatchKeyboard(button, 'keyup', 'KeyA')
+    await wrap(sleep())
+
+    expect(listener).not.toHaveBeenCalled()
+    unsubscribe()
+  })
+
+  test.each([
+    ['isComposing', { isComposing: true }],
+    ['IME keyCode', { keyCode: 229 }],
+  ] as const)(
+    'ignores %s events and suspends the current chord',
+    async (_, init) => {
+      const hotkey = reatomHotkey('a+b', {
+        preventDefault: true,
+        propagation: 'immediate',
+      })
+      const { listener, unsubscribe } = await connect(hotkey)
+
+      dispatchKeyboard(document, 'keydown', 'KeyA')
+      const ignored = dispatchKeyboard(document, 'keydown', 'KeyB', init)
+      dispatchKeyboard(document, 'keydown', 'KeyB')
+      dispatchKeyboard(document, 'keyup', 'KeyB')
+      dispatchKeyboard(document, 'keyup', 'KeyA')
+      await wrap(sleep())
+
+      expect(listener).not.toHaveBeenCalled()
+      expect(ignored.defaultPrevented).toBe(false)
+
+      dispatchKeyboard(document, 'keydown', 'KeyA')
+      dispatchKeyboard(document, 'keydown', 'KeyB')
+      await wrap(sleep())
+
+      expect(listener).toHaveBeenCalledOnce()
+      unsubscribe()
+    },
+  )
 
   test('applies event side effects only after every filter accepts the event', async () => {
     const observed: Array<[boolean, number, number]> = []
