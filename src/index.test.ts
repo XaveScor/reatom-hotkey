@@ -148,7 +148,7 @@ describe('reatomHotkey', () => {
 
   test('applies the repeat filter to the configured keyup trigger', async () => {
     const { listener, unsubscribe } = await connect(
-      reatomHotkey('a', { repeat: 'ignore', trigger: 'keyup' }),
+      reatomHotkey('a', { repeat: false, trigger: 'keyup' }),
     )
 
     dispatchKeyboard(document, 'keydown', 'KeyA', { repeat: true })
@@ -225,7 +225,7 @@ describe('reatomHotkey', () => {
   test('can ignore repeated events after matching', async () => {
     const { listener, unsubscribe } = await connect(
       reatomHotkey('a', {
-        repeat: 'ignore',
+        repeat: false,
         preventDefault: true,
         propagation: 'stop',
       }),
@@ -251,7 +251,7 @@ describe('reatomHotkey', () => {
     editable.append(editableChild)
     document.body.append(input, textarea, select, editable, button)
     const { listener, unsubscribe } = await connect(
-      reatomHotkey('a', { editable: 'ignore' }),
+      reatomHotkey('a', { editable: false }),
     )
 
     for (const target of [input, textarea, select, editable, editableChild]) {
@@ -272,7 +272,7 @@ describe('reatomHotkey', () => {
     const button = document.createElement('button')
     document.body.append(input, button)
     const { listener, unsubscribe } = await connect(
-      reatomHotkey('a+b', { editable: 'ignore' }),
+      reatomHotkey('a+b', { editable: false }),
     )
 
     dispatchKeyboard(button, 'keydown', 'KeyA')
@@ -297,7 +297,7 @@ describe('reatomHotkey', () => {
     const button = document.createElement('button')
     document.body.append(input, button)
     const { listener, unsubscribe } = await connect(
-      reatomHotkey('ctrl+a', { editable: 'ignore' }),
+      reatomHotkey('ctrl+a', { editable: false }),
     )
 
     dispatchKeyboard(input, 'keydown', 'KeyA', { ctrlKey: true })
@@ -324,7 +324,7 @@ describe('reatomHotkey', () => {
     const button = document.createElement('button')
     document.body.append(input, button)
     const { listener, unsubscribe } = await connect(
-      reatomHotkey('a+b', { editable: 'ignore', trigger: 'keyup' }),
+      reatomHotkey('a+b', { editable: false, trigger: 'keyup' }),
     )
 
     dispatchKeyboard(button, 'keydown', 'KeyA')
@@ -371,7 +371,7 @@ describe('reatomHotkey', () => {
   test('applies event side effects only after every filter accepts the event', async () => {
     const observed: Array<[boolean, number, number]> = []
     const hotkey = reatomHotkey('a', {
-      repeat: 'ignore',
+      repeat: false,
       preventDefault: true,
       propagation: 'immediate',
     })

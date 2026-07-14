@@ -26,7 +26,7 @@ import { effect, getCalls } from '@reatom/core'
 import { reatomHotkey } from '@xavescor/reatom-hotkey'
 
 const saveHotkey = reatomHotkey('ctrl+s', {
-  editable: 'ignore',
+  editable: false,
   preventDefault: true,
 })
 
@@ -61,8 +61,8 @@ immediately.
 | `document` | `globalThis.document` | Document to listen on. Pass an iframe document when needed. |
 | `trigger` | `'keydown'` | Invoke the action on `keydown` or `keyup`. |
 | `capture` | `false` | Listen during the capture phase. |
-| `repeat` | `'allow'` | Allow or ignore repeated keyboard events. |
-| `editable` | `'allow'` | Allow or ignore events from editable controls. |
+| `repeat` | `true` | Whether to handle repeated keyboard events. |
+| `editable` | `true` | Whether to handle events from editable controls. |
 | `preventDefault` | `false` | Prevent the accepted event's browser default. |
 | `propagation` | `'allow'` | Allow, stop or immediately stop event propagation. |
 | `name` | normalized declaration | Reatom action name, such as `hotkey.ctrl+s`. |

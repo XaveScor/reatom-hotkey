@@ -15,8 +15,8 @@ export interface HotkeyOptions {
   document?: Document
   trigger?: 'keydown' | 'keyup'
   capture?: boolean
-  repeat?: 'allow' | 'ignore'
-  editable?: 'allow' | 'ignore'
+  repeat?: boolean
+  editable?: boolean
   preventDefault?: boolean
   propagation?: 'allow' | 'stop' | 'immediate'
   name?: string
@@ -51,8 +51,8 @@ export const reatomHotkey = (
   const {
     trigger = 'keydown',
     capture = false,
-    repeat = 'allow',
-    editable = 'allow',
+    repeat = true,
+    editable = true,
     preventDefault = false,
     propagation = 'allow',
     name = `hotkey.${hotkey.trim().toLowerCase()}`,
@@ -84,7 +84,7 @@ export const reatomHotkey = (
         event.isComposing || event.keyCode === 229
 
       const isIgnoredEditable = (event: KeyboardEvent) =>
-        editable === 'ignore' && isEditableEvent(event)
+        !editable && isEditableEvent(event)
 
       const suspend = (event: KeyboardEvent) => {
         suspended = true
@@ -105,8 +105,7 @@ export const reatomHotkey = (
         }
       }
 
-      const acceptsRepeat = (event: KeyboardEvent) =>
-        repeat === 'allow' || !event.repeat
+      const acceptsRepeat = (event: KeyboardEvent) => repeat || !event.repeat
 
       const invoke = (event: KeyboardEvent) => {
         if (preventDefault) event.preventDefault()
