@@ -1,3 +1,4 @@
+import { playwright } from '@vitest/browser-playwright'
 import { defineViteConfig } from 'smartbundle'
 import { defineConfig, mergeConfig } from 'vitest/config'
 
@@ -16,7 +17,7 @@ export default defineConfig(async () => {
           enabled: true,
           headless: true,
           instances: [{ browser: 'chromium' }],
-          provider: 'playwright',
+          provider: playwright(),
           screenshotFailures: false,
         },
       },

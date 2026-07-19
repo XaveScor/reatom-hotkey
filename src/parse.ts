@@ -109,8 +109,10 @@ for (const [key, code] of Object.entries(punctuationCodes)) {
 }
 
 export const parse = (input: string): readonly Entry[] => {
-  if ([...input].some((character) => character.charCodeAt(0) > 0x7f)) {
-    throw new TypeError('Hotkey must contain ASCII characters only')
+  for (const character of input) {
+    if (character.charCodeAt(0) > 0x7f) {
+      throw new TypeError('Hotkey must contain ASCII characters only')
+    }
   }
 
   const normalized = input.trim()

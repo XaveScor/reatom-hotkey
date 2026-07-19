@@ -4,12 +4,9 @@ import type { GAction } from '@reatom/core'
 import { compile } from './compile'
 import { parse } from './parse'
 
-const modifierFlags = [
-  'altKey',
-  'ctrlKey',
-  'metaKey',
-  'shiftKey',
-] as const
+type ModifierFlag = 'altKey' | 'ctrlKey' | 'metaKey' | 'shiftKey'
+
+const EDITABLE_TAGS = new Set(['INPUT', 'TEXTAREA', 'SELECT'])
 
 export interface HotkeyOptions {
   document?: Document
@@ -22,24 +19,31 @@ export interface HotkeyOptions {
   name?: string
 }
 
+const isEditableTarget = (target: unknown): boolean => {
+  if (target === null || typeof target !== 'object') return false
+
+  const element = target as {
+    isContentEditable?: unknown
+    tagName?: unknown
+  }
+
+  return (
+    element.isContentEditable === true ||
+    (typeof element.tagName === 'string' &&
+      EDITABLE_TAGS.has(element.tagName.toUpperCase()))
+  )
+}
+
 const isEditableEvent = (event: KeyboardEvent): boolean => {
   const path = event.composedPath()
-  const targets = path.length === 0 ? [event.target] : path
 
-  return targets.some((target) => {
-    if (target === null || typeof target !== 'object') return false
+  if (path.length === 0) return isEditableTarget(event.target)
 
-    const element = target as {
-      isContentEditable?: unknown
-      tagName?: unknown
-    }
+  for (let index = 0; index < path.length; index++) {
+    if (isEditableTarget(path[index])) return true
+  }
 
-    return (
-      element.isContentEditable === true ||
-      (typeof element.tagName === 'string' &&
-        ['INPUT', 'TEXTAREA', 'SELECT'].includes(element.tagName.toUpperCase()))
-    )
-  })
+  return false
 }
 
 /** Creates a lazily connected action for a physical keyboard shortcut. */
@@ -68,7 +72,7 @@ export const reatomHotkey = (
       if (targetDocument === undefined) return
 
       const pressedCodes = new Set<string>()
-      const suspendedModifiers = new Set<(typeof modifierFlags)[number]>()
+      const suspendedModifiers = new Set<ModifierFlag>()
       let armed = false
       let suspended = false
 
@@ -90,15 +94,17 @@ export const reatomHotkey = (
         suspended = true
         armed = false
 
-        for (const flag of modifierFlags) {
-          if (event[flag]) suspendedModifiers.add(flag)
-        }
+        if (event.altKey) suspendedModifiers.add('altKey')
+        if (event.ctrlKey) suspendedModifiers.add('ctrlKey')
+        if (event.metaKey) suspendedModifiers.add('metaKey')
+        if (event.shiftKey) suspendedModifiers.add('shiftKey')
       }
 
       const updateSuspension = (event: KeyboardEvent) => {
-        for (const flag of modifierFlags) {
-          if (!event[flag]) suspendedModifiers.delete(flag)
-        }
+        if (!event.altKey) suspendedModifiers.delete('altKey')
+        if (!event.ctrlKey) suspendedModifiers.delete('ctrlKey')
+        if (!event.metaKey) suspendedModifiers.delete('metaKey')
+        if (!event.shiftKey) suspendedModifiers.delete('shiftKey')
 
         if (pressedCodes.size === 0 && suspendedModifiers.size === 0) {
           suspended = false

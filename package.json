@@ -5,20 +5,26 @@
   "private": true,
   "type": "module",
   "exports": "./src/index.ts",
+  "engines": {
+    "node": "^20.19.0 || >=22.12.0"
+  },
   "scripts": {
     "build": "smartbundle",
     "test": "vitest run --config vitest.config.ts"
   },
   "keywords": [],
   "devDependencies": {
-    "@vitest/browser": "^3.2.7",
+    "@reatom/core": "^1001.2.0",
+    "@typescript/typescript6": "^6.0.2",
+    "@vitest/browser": "^4.1.10",
+    "@vitest/browser-playwright": "^4.1.10",
     "oxlint": "^1.73.0",
     "playwright": "^1.61.1",
-    "smartbundle": "^0.14.2",
-    "typescript": "^5.9.3",
-    "vitest": "^3.2.7"
+    "smartbundle": "^0.16.1",
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.10"
   },
-  "dependencies": {
+  "peerDependencies": {
     "@reatom/core": "^1001.1.0"
   }
 }
